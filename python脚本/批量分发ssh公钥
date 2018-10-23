@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+#coding: utf-8
+import pexpect
+import sys
+import os
+def putPublicKey(publicKey,user,servers,port):
+    for server in servers:
+        server = server.strip('\n')
+        child = pexpect.spawn("/usr/bin/ssh-copy-id -p %s -i %s %s@%s" %(port,publicKey,user,server))
+        index = child.expect(["yes/no","password","exist",pexpect.exceptions.EOF, pexpect.TIMEOUT])
+        if index != 0 and index != 1:
+            print ("未向%s上传公钥"%(server))
+            child.close(force=True)
+        else:
+            print ("开始向%s上传公钥"%(server))
+            child.expect("(yes/no)?")
+            child.sendline("yes")
+            child.expect("password:")
+            child.sendline("123456")
+            child.expect("added.")
+            print ("已向%s上传公钥"%(server))
+            print
+    print ("任务执行完成")
+if __name__ == '__main__':
+    user = "root"     #指定远程主机用户名
+    file_readlines = open('/root/list')  
+    servers = file_readlines.readlines() #读取需要上传公钥的主机到列表
+    file_readlines.close()
+    port = "22"  #指定远程主机的ssh端口
+    keypath = os.path.expanduser('~')
+    publicKey = keypath+"/.ssh/id_rsa.pub"  #指定要上传的公钥
+     #如果指定的公钥不存在，自动创建
+    if not os.path.exists(publicKey):
+         direname = os.path.dirname(publicKey)
+         print("指定公钥不存在，将自动生成私钥和公钥，路径为：%s"%(direname))
+         child = pexpect.spawn("ssh-keygen -t rsa  -f %s/id_rsa" %(direname))
+         index = child.expect(["passphrase","passphrase again",pexpect.exceptions.EOF, pexpect.TIMEOUT])
+         if index != 0 and index != 1:
+             print ("生成私钥和公钥失败")
+             child.close(force=True)
+         else:
+             print ("开始生成公钥和私钥")
+             child.expect("passphrase")
+             child.sendline("")
+             child.expect("passphrase again")
+             child.sendline("")
+             child.expect("key's randomart image is")
+             child.close(force=True)
+             print ("已生成私钥和公钥")
+    putPublicKey(publicKey,user,servers,port)
